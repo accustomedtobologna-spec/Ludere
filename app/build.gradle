@@ -76,20 +76,25 @@ task prepareCore {
             def downloadUrl = "https://buildbot.libretro.com/nightly/android/latest/$abi/${configValue('config_core')}_libretro_android.so.zip"
             def zipPath = "${rootProject.projectDir}/app/src/main/jniLibs/$abi/${configValue('config_core')}_libretro_android.so.zip"
             
-            // Use curl with -f to fail on 404, and -L to follow redirects
-            def result = "curl -fL# '$downloadUrl' -o '$zipPath'".execute()
-            result.waitFor()
+            println("Downloading core for $abi...")
             
-            if (result.exitValue() != 0) {
+            // Use ProcessBuilder for better control and error handling
+            def pb = new ProcessBuilder("bash", "-c", "curl -fL# '${downloadUrl}' -o '${zipPath}'")
+            pb.directory(rootProject.projectDir)
+            pb.inheritIO()
+            def process = pb.start()
+            int exitCode = process.waitFor()
+            
+            if (exitCode != 0) {
                 println("⚠️ Warning: Core not available for $abi - skipping this architecture")
-                if (jniAbiFolder.exists() && jniAbiFolder.listFiles() == null || jniAbiFolder.listFiles().length == 0) {
+                if (jniAbiFolder.exists()) {
                     jniAbiFolder.deleteDir()
                 }
                 continue
             }
             
             if (file(zipPath).exists()) {
-                println("✓ Downloaded core for $abi")
+                println("✓ Downloaded core for $abi, extracting...")
                 copy {
                     from zipTree(zipPath)
                     into "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
