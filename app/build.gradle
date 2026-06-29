@@ -64,43 +64,43 @@ android {
 task prepareCore {
     doLast {
         for (abi in ['x86', 'x86_64', 'armeabi-v7a', 'arm64-v8a']) {
-            var jniAbiFolder = file("${rootProject.projectDir}/app/src/main/jniLibs/$abi")
+            def jniAbiFolder = file("${rootProject.projectDir}/app/src/main/jniLibs/$abi")
 
-            if (jniAbiFolder.exists() && jniAbiFolder.list().length > 0)
+            if (jniAbiFolder.exists() && jniAbiFolder.list().length > 0) {
+                println("✓ Core already exists for $abi, skipping...")
                 continue
+            }
 
             jniAbiFolder.mkdirs()
 
             def downloadUrl = "https://buildbot.libretro.com/nightly/android/latest/$abi/${configValue('config_core')}_libretro_android.so.zip"
             def zipPath = "${rootProject.projectDir}/app/src/main/jniLibs/$abi/${configValue('config_core')}_libretro_android.so.zip"
             
-            try {
-                download {
-                    src downloadUrl
-                    dest "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
-                    overwrite true
-                    quiet false
-                    onError { Exception e ->
-                        println("⚠️ Warning: Could not download core for $abi: ${e.message}")
-                        println("   Skipping $abi architecture...")
-                    }
+            // Use curl with -f to fail on 404, and -L to follow redirects
+            def result = "curl -fL# '$downloadUrl' -o '$zipPath'".execute()
+            result.waitFor()
+            
+            if (result.exitValue() != 0) {
+                println("⚠️ Warning: Core not available for $abi - skipping this architecture")
+                if (jniAbiFolder.exists() && jniAbiFolder.listFiles() == null || jniAbiFolder.listFiles().length == 0) {
+                    jniAbiFolder.deleteDir()
                 }
-                
-                if (file(zipPath).exists()) {
-                    copy {
-                        from zipTree(zipPath)
-                        into "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
-                        rename "${configValue('config_core')}_libretro_android.so", "libcore.so"
-                    }
-                    delete {
-                        delete zipPath
-                    }
-                } else {
-                    println("⚠️ Warning: Core not downloaded for $abi, skipping...")
+                continue
+            }
+            
+            if (file(zipPath).exists()) {
+                println("✓ Downloaded core for $abi")
+                copy {
+                    from zipTree(zipPath)
+                    into "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
+                    rename "${configValue('config_core')}_libretro_android.so", "libcore.so"
                 }
-            } catch (Exception e) {
-                println("⚠️ Warning: Failed to process core for $abi: ${e.message}")
-                println("   Skipping $abi architecture...")
+                delete {
+                    delete zipPath
+                }
+                println("✓ Extracted and prepared core for $abi")
+            } else {
+                println("⚠️ Warning: Download verification failed for $abi")
             }
         }
     }
