@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.display.DisplayManager
 import android.os.Build
+import android.util.Log
 import android.view.Display
 import android.view.InputDevice
 import android.view.WindowManager
@@ -24,6 +25,8 @@ class GamePad(
     val pad = RadialGamePad(padConfig, 0f, context)
 
     companion object {
+        private const val TAG = "GamePad"
+
         /**
          * Should the user see the on-screen controls?
          */
@@ -68,11 +71,26 @@ class GamePad(
      */
     private fun eventHandler(event: Event, retroView: GLRetroView) {
         when (event) {
-            is Event.Button -> retroView.sendKeyEvent(event.action, event.id, 0)
-            is Event.Direction -> when (event.id) {
-                GLRetroView.MOTION_SOURCE_DPAD -> retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_DPAD, event.xAxis, event.yAxis, 0)
-                GLRetroView.MOTION_SOURCE_ANALOG_LEFT -> retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_LEFT, event.xAxis, event.yAxis, 0)
-                GLRetroView.MOTION_SOURCE_ANALOG_RIGHT -> retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_RIGHT, event.xAxis, event.yAxis, 0)
+            is Event.Button -> {
+                Log.d(TAG, "Button event: action=${event.action}, id=${event.id}")
+                retroView.sendKeyEvent(event.action, event.id, 0)
+            }
+            is Event.Direction -> {
+                Log.d(TAG, "Direction event: id=${event.id}, xAxis=${event.xAxis}, yAxis=${event.yAxis}")
+                when (event.id) {
+                    GLRetroView.MOTION_SOURCE_DPAD -> {
+                        Log.d(TAG, "Sending DPAD motion")
+                        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_DPAD, event.xAxis, event.yAxis, 0)
+                    }
+                    GLRetroView.MOTION_SOURCE_ANALOG_LEFT -> {
+                        Log.d(TAG, "Sending ANALOG_LEFT motion")
+                        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_LEFT, event.xAxis, event.yAxis, 0)
+                    }
+                    GLRetroView.MOTION_SOURCE_ANALOG_RIGHT -> {
+                        Log.d(TAG, "Sending ANALOG_RIGHT motion")
+                        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_RIGHT, event.xAxis, event.yAxis, 0)
+                    }
+                }
             }
         }
     }
@@ -81,7 +99,9 @@ class GamePad(
      * Register input events to the RetroView
      */
     fun subscribe(compositeDisposable: CompositeDisposable, retroView: GLRetroView) {
+        Log.d(TAG, "Subscribing gamepad to retroview")
         val inputDisposable = pad.events().subscribe {
+            Log.d(TAG, "GamePad event received: $it")
             eventHandler(it, retroView)
         }
         compositeDisposable.add(inputDisposable)
